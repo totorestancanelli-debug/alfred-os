@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="it" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ALFRED OS — Life OS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    body { background-color: #0d1117; color: #e6edf3; overflow-x: hidden; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .tactical-grid {
+      background-image: radial-gradient(rgba(48, 54, 61, 0.45) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+    .bar-fill { transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0d1117; }
+    ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 9999px; }
+  </style>
+</head>
+<body class="tactical-grid min-h-screen antialiased selection:bg-cyan-500/30 selection:text-cyan-200">
+
+  <div id="toastContainer" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-xs w-full pointer-events-none"></div>
+
+  <!-- Modale: target, dispensa, backup -->
+  <div id="settingsModal" class="fixed inset-0 z-40 hidden bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-[#161b22] border border-[#30363d] rounded-2xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto space-y-5">
+      <div class="flex items-center justify-between border-b border-[#30363d] pb-3">
+        <div>
+          <span class="text-xs mono uppercase tracking-wider text-cyan-400">Parametri</span>
+          <h2 class="text-lg font-bold text-white">Target, Dispensa & Backup</h2>
+        </div>
+        <button type="button" onclick="toggleModal('settingsModal', false)" class="p-2 rounded-xl bg-[#0d1117] border border-[#30363d] text-gray-400 hover:text-white transition">✕</button>
+      </div>
+
+      <form id="targetsForm" onsubmit="saveTargets(event)" class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Calorie (kcal)</label>
+          <input type="number" id="cfgKcal" required class="w-full rounded-xl bg-[#0d1117] border border-[#30363d] px-3 py-2 text-white mono focus:border-cyan-400 focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Proteine (g)</label>
+          <input type="number" id="cfgProtein" required class="w-full rounded-xl bg-[#0d1117] border border-[#30363d] px-3 py-2 text-white mono focus:border-cyan-400 focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Carboidrati (g)</label>
+          <input type="number" id="cfgCarbs" required class="w-full rounded-xl bg-[#0d1117] border border-[#30363d] px-3 py-2 text-white mono focus:border-cyan-400 focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Grassi (g)</label>
+          <input type="number" id="cfgFat" required class="w-full rounded-xl bg-[#0d1117] border border-[#30363d] px-3 py-2 text-white mono focus:border-cyan-400 focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Acqua (litri)</label>
+          <input type="number" step="0.1" id="cfgWater" required class="w-full rounded-xl bg-[#0d1117] border border-[#30363d] px-3 py-2 text-white mono focus:border-cyan-400 focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Sonno (ore)</label>
+          <input type="number" step="0.5" id="cfgSleep" required class="w-full rounded-xl bg-[#0d1117] border border-[#30363d] px-3 py-2 text-white mono focus:border-cyan-400 focus:outline-none" />
+        </div>
+        <div class="col-span-2 sm:col-span-3 pt-1">
+          <button type="submit" class="w-full py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs sm:text-sm transition">Salva target</button>
+        </div>
+      </form>
+
+      <div class="border-t border-[#30363d] pt-4 space-y-3">
+        <p class="text-xs mono uppercase tracking-wider text-amber-400">Dispensa (PRO · CARB · QUICK)</p>
+        <form id="pantryAddForm" onsubmit="addPantryItem(event)" class="grid grid-cols-1 sm:grid-cols-12 gap-2 text-xs">
+          <input type="text" id="pantryName" placeholder="Alimento (es. Petto di pollo)" required class="sm:col-span-4 rounded-xl bg-[#0d1117] border border-[#30363d] px-3 py-2 text-white focus:border-amber-400 focus:outline-none" />
+          <select id="pantryTag" class="sm:col-span-2 rounded-xl bg-[#0d1117] border border-[#30363d] px-2.5 py-2 text-white mono focus:border-amber-400 focus:outline-none">
+            <option value="PRO">PRO</option>
+            <option value="CARB">CARB</option>
+            <option value="QUICK">QUICK</option>
+          </select>
+          <input type="number" id="pantryKcal" placeholder="Kcal" min="0" required class="sm:col-span-2 rounded-xl bg-[#0d1117] border border-[#30363d] px-2.5 py-2 text-white mono focus:border-amber-400 focus:outline-none" />
+          <input type="number" id="pantryPro" placeholder="Pro g" min="0" required class="sm:col-span-2 rounded-xl bg-[#0d1117] border border-[#30363d] px-2.5 py-2 text-white mono focus:border-amber-400 focus:outline-none" />
+          <button type="submit" class="sm:col-span-2 py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition">+ Aggiungi</button>
+        </form>
+        <div id="modalPantryList" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1"></div>
+      </div>
+
+      <div class="border-t border-[#30363d] pt-4 space-y-2.5">
+        <p class="text-xs mono uppercase tracking-wider text-gray-400">Esportazione, chiave & reset</p>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <button type="button" onclick="exportJSON()" class="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20 text-xs font-semibold transition">↓ Esporta JSON</button>
+          <button type="button" onclick="changeKey()" class="p-3 rounded-xl bg-[#0d1117] border border-[#30363d] text-gray-300 hover:text-white text-xs font-semibold transition">🔑 Cambia chiave</button>
+          <button type="button" onclick="confirmResetAll()" class="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 hover:bg-red-500/20 text-xs font-semibold transition">✕ Reset & sincronizza</button>
+        </div>
+        <div id="resetConfirmBox" class="hidden p-3 rounded-xl bg-red-950/60 border border-red-500/40 text-xs text-red-200 flex items-center justify-between gap-2">
+          <span>Confermi l'azzeramento dello stato e l'invio sul foglio?</span>
+          <div class="flex gap-2">
+            <button type="button" onclick="executeResetAll()" class="px-3 py-1.5 rounded-lg bg-red-600 text-white font-bold">Sì, azzera</button>
+            <button type="button" onclick="document.getElementById('resetConfirmBox').classList.add('hidden')" class="px-3 py-1.5 rounded-lg bg-[#0d1117] text-gray-300">Annulla</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-5">
+
+    <!-- HEADER -->
+    <header class="flex flex-wrap items-center justify-between gap-3 bg-[#161b22] border border-[#30363d] rounded-2xl px-4 py-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/40 flex items-center justify-center text-cyan-400 font-bold mono text-base">OS</div>
+        <div>
+          <div class="flex flex-wrap items-center gap-2">
+            <h1 class="text-base sm:text-lg font-extrabold tracking-tight text-white">ALFRED OS</h1>
+            <span class="px-2 py-0.5 text-[10px] mono font-bold uppercase rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">Cloud · Foglio Google</span>
+          </div>
+          <p class="text-xs text-gray-400 mono" id="currentDateLabel">Data: --</p>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <button type="button" id="undoLastBtn" onclick="undoLastAction()" disabled class="px-3 py-2 rounded-xl bg-[#0d1117] border border-[#30363d] text-xs font-semibold text-gray-500 disabled:opacity-45 disabled:cursor-not-allowed hover:bg-amber-500/10 hover:border-amber-400/40 hover:text-amber-300 transition">↩ Annulla</button>
+        <button type="button" onclick="caricaUltimoStatoDaFoglio(true)" class="px-3 py-2 rounded-xl bg-[#0d1117] hover:bg-emerald-500/10 border border-[#30363d] hover:border-emerald-500/40 text-xs font-semibold text-emerald-300 transition">↓ Carica da Foglio</button>
+        <button type="button" onclick="inviaStatoASyncLog(true, true)" title="Salva una riga, genera il briefing e invia il test Telegram" class="px-3 py-2 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/40 text-xs font-semibold text-cyan-300 transition">↑ Sync Foglio AI</button>
+        <button type="button" onclick="toggleModal('settingsModal', true)" class="px-3 py-2 rounded-xl bg-[#0d1117] hover:bg-cyan-500/10 border border-[#30363d] hover:border-cyan-500/40 text-xs font-semibold text-cyan-300 transition">⚙ Impostazioni</button>
+      </div>
+    </header>
+
+    <!-- STATO -->
+    <section class="bg-[#161b22] border border-[#30363d] rounded-2xl p-4 sm:p-5 space-y-5 shadow-lg">
+      <div class="space-y-2">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-2.5">
+            <span id="playerLevelBadge" class="px-3 py-1 rounded-xl bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 mono font-extrabold text-sm">LVL 1</span>
+            <span class="text-sm font-bold text-white">Stato generale</span>
+          </div>
+          <span id="xpText" class="text-xs mono text-gray-300">0 / 1000 XP</span>
+        </div>
+        <div class="w-full h-3.5 bg-[#0d1117] rounded-full overflow-hidden border border-[#30363d] p-0.5">
+          <div id="xpProgressBar" class="bar-fill h-full rounded-full bg-gradient-to-r from-cyan-500 to-emerald-400" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="bg-[#0d1117] border border-[#30363d] rounded-xl p-3.5 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold tracking-wide text-red-400">⚔️ FORZA</span>
+            <span id="statForzaLvl" class="text-xs mono font-bold text-white bg-[#161b22] px-2 py-0.5 rounded-lg border border-[#30363d]">Lv.1</span>
+          </div>
+          <p class="text-[11px] text-gray-400">Allenamento & carichi</p>
+          <div class="w-full h-2 bg-[#161b22] rounded-full overflow-hidden">
+            <div id="statForzaBar" class="bar-fill h-full bg-red-500 rounded-full" style="width: 0%"></div>
+          </div>
+          <div class="flex justify-between text-[11px] mono text-gray-400">
+            <span id="statForzaXp">0 / 250</span>
+            <span id="statForzaDetail">0 sessioni oggi</span>
+          </div>
+        </div>
+
+        <div class="bg-[#0d1117] border border-[#30363d] rounded-xl p-3.5 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold tracking-wide text-cyan-400">🧠 INTELLETTO</span>
+            <span id="statIntellettoLvl" class="text-xs mono font-bold text-white bg-[#161b22] px-2 py-0.5 rounded-lg border border-[#30363d]">Lv.1</span>
+          </div>
+          <p class="text-[11px] text-gray-400">Studio & focus</p>
+          <div class="w-full h-2 bg-[#161b22] rounded-full overflow-hidden">
+            <div id="statIntellettoBar" class="bar-fill h-full bg-cyan-400 rounded-full" style="width: 0%"></div>
+          </div>
+          <div class="flex justify-between text-[11px] mono text-gray-400">
+            <span id="statIntellettoXp">0 / 250</span>
+            <span id="statIntellettoDetail">0 min oggi</span>
+          </div>
+        </div>
+
+        <div class="bg-[#0d1117] border border-[#30363d] rounded-xl p-3.5 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold tracking-wide text-amber-400">🥩 CARBURANTE</span>
+            <span id="statCarburanteLvl" class="text-xs mono font-bold text-white bg-[#161b22] px-2 py-0.5 rounded-lg border border-[#30363d]">Lv.1</span>
+          </div>
+          <p class="text-[11px] text-gray-400">Kcal & macro</p>
+          <div class="w-full h-2 bg-[#161b22] rounded-full overflow-hidden">
+            <div id="statCarburanteBar" class="bar-fill h-full bg-amber-400 rounded-full" style="width: 0%"></div>
+          </div>
+          <div class="flex justify-between text-[11px] mono text-gray-400">
+            <span id="statCarburanteXp">0 / 250</span>
+            <span id="statCarburanteDetail">0g pro oggi</span>
+          </div>
+        </div>
+
+        <div class="bg-[#0d1117] border border-[#30363d] rounded-xl p-3.5 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold tracking-wide text-emerald-400">🔋 RECUPERO</span>
+            <span id="statRecuperoLvl" class="text-xs mono font-bold text-white bg-[#161b22] px-2 py-0.5 rounded-lg border border-[#30363d]">Lv.1</span>
+          </div>
+          <p class="text-[11px] text-gray-400">Sonno & acqua</p>
+          <div class="w-full h-2 bg-[#161b22] rounded-full overflow-hidden">
+            <div id="statRecuperoBar" class="bar-fill h-full bg-emerald-400 rounded-full" style="width: 0%"></div>
+          </div>
+          <div class="flex justify-between text-[11px] mono text-gray-400">
+            <span id="statRecuperoXp">0 / 250</span>
+            <span id="statRecuperoDetail">0.0L acqua oggi</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- COMANDANTE -->
+    <section class="bg-gradient-to-br from-[#161b22] to-[#111922] border border-cyan-500/40 rounded-2xl p-4 sm:p-5 shadow-lg">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse"></span>
+          <h2 class="text-sm sm:text-base font-extrabold uppercase tracking-wider text-cyan-300 mono">Ordini del Comandante</h2>
+        </div>
+        <span id="connStatus" class="text-xs mono px-2.5 py-1 rounded-lg bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">FOGLIO CLOUD</span>
+      </div>
+      <div id="commanderOrdersList" class="space-y-2.5 text-sm"></div>
+    </section>
+
+    <!-- LOG RAPIDO -->
+    <section class="bg-[#161b22] border border-[#30363d] rounded-2xl p-4 sm:p-5 space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <span class="text-[11px] mono uppercase text-gray-400">Inserimento</span>
+          <h2 class="text-base sm:text-lg font-bold text-white">Log rapido</h2>
+        </div>
+        <span id="lastActionLabel" class="text-xs mono text-gray-400">Nessuna azione annullabile</span>
+      </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <button type="button" onclick="switchTab('tabWorkout')" id="btn-tabWorkout" class="tab-btn p-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 bg-cyan-500/15 border-cyan-400 text-cyan-300">⚔️ Allenamento</button>
+        <button type="button" onclick="switchTab('tabNutrition')" id="btn-tabNutrition" class="tab-btn p-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 bg-[#0d1117] border-[#30363d] text-gray-400 hover:text-white">🥩 Pasti</button>
+        <button type="button" onclick="switchTab('tabStudy')" id="btn-tabStudy" class="tab-btn p-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 bg-[#0d1117] border-[#30363d] text-gray-400 hover:text-white">🧠 Studio</button>
+        <button type="button" onclick="switchTab('tabRecovery')" id="btn-tabRecovery" class="tab-btn p-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 bg-[#0d1117] border-[#30363d] text-gray-400 hover:text-white">🔋 Routine</button>
+      </div>
+
+      <!-- Allenamento -->
+      <form id="tabWorkout" onsubmit="handleWorkoutSubmit(event)" class="tab-panel space-y-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Tipo sessione</label>
+            <select id="woType" class="w-full rounded-xl bg-[#0d1117] border border-[#30363d] px-3 py-2.5 text-sm text-white focus:border-cyan-400 focus:outline-none">
+              <option value="Spinta (Push)">Spinta (Push)</option>
+              <option value="Tirata (Pull)">Tirata (Pull)</option>
+              <option value="Gambe (Legs)">Gambe (Legs)</option>
+              <option value="Full Body">Full Body</option>
+              <option value="Condizionamento">Condizionamento</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Esercizio chiave</label>
+            <input type="text" id="woExercise" placeholder="es. Panca piana, Squat, Rematore" required class="w-full rounded-xl bg-[#0d1117] border border-[#30363d] px-3 py-2.5 text-sm text-white focus:border-cyan-400 focus:outline-none" />
+          </div>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Carico (kg)</label>
+            <input type="number" step="0.5" id="woWeight" value="70" min="0" required class="w-full rounded-xl bg-[#0d1117] border border-[#30363d] px-3 py-2.5 text-sm text-white mono focus:border-cyan-400 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Serie</label>
+            <input type="number" id="woSets" value="4" min="1" max="20" required class="w-full rounded-xl bg-[#0d1117] border border-[#30363d] px-3 py-2.5 text-sm text-white mono focus:border-cyan-400 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Ripetizioni</label>
+            <input type="number" id="woReps" value="8" min="1" max="100" required class="w-full rounded-xl bg-[#0d1117] border border-[#30363d] px-3 py-2.5 text-sm text-white mono focus:border-cyan-400 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">RPE (1-10)</label>
+            <input type="number" id="woRpe" value="7.5" step="0.5" min="1" max="10" required class="w-full rounded-xl bg-[#0d1117] border border-[#30363d] px-3 py-2.5 text-sm text-white mono focus:border-cyan-400 focus:outline-none" />
+          </div>
+        </div>
+        <button type="submit" class="w-full py-3 rounded-xl bg-red-500 hover:bg-red-400 text-white font-bold text-sm transition shadow-md">+ Registra sessione</button>
+      </form>
+
+      <!-- Pasti -->
+      <form id="tabNutrition" onsubmit="handleNutritionSubmit(event)" class="tab-panel hidden space-y-3">
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Pasto / alimento</label>
+          <input type="text" id="mealName" placeholder="es. Pollo e patate" required class="w-full rounded-xl bg-[#0d1117] border border-[#30363d] px-3 py-2.5 text-sm text-white focus:border-amber-400 focus:outline-none" />
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Kcal</label>
+            <input type="number" id="mealKcal" min="0" required class="w-full rounded-xl bg-[#0d1117] border border-[#30363d] px-3 py-2 text-sm text-white mono focus:border-amber-400 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Proteine (g)</label>
+            <input type="number" id="mealProtein" min="0" required class="w-full rounded-xl bg-[#0d1117] border border-[#30363d] px-3 py-2 text-sm text-white mono focus:border-amber-400 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Carbo (g)</label>
+            <input type="number" id="mealCarbs" min="0" required class="w-full rounded-xl bg-[#0d1117] border border-[#30363d] px-3 py-2 text-sm text-white mono focus:border-amber-400 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Grassi (g)</label>
+            <input type="number" id="mealFat" min="0" required class="w-full rounded-xl bg-[#0d1117] border border-[#30363d] px-3 py-2 text-sm text-white mono focus:border-amber-400 focus:outline-none" />
+          </div>
+        </div>
+        <button type="submit" class="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm transition shadow-md">+ Registra pasto</button>
+      </form>
+
+      <!-- Studio -->
+      <form id="tabStudy" onsubmit="handleStudySubmit(event)" class="tab-panel hidden space-y-3">
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Materia / argomento</label>
+          <input type="text" id="studyTopic" placeholder="es. Biologia vegetale" required class="w-full rounded-xl bg-[#0d1117] border border-[#30363d] px-3 py-2.5 text-sm text-white focus:border-cyan-400 focus:outline-none" />
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Durata (minuti)</label>
+            <input type="number" id="studyMinutes" value="45" min="5" max="480" required class="w-full rounded-xl bg-[#0d1117] border border-[#30363d] px-3 py-2.5 text-sm text-white mono focus:border-cyan-400 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Intensità</label>
+            <select id="studyIntensity" class="w-full rounded-xl bg-[#0d1117] border border-[#30363d] px-3 py-2.5 text-sm text-white focus:border-cyan-400 focus:outline-none">
+              <option value="Alta">Alta</option>
+              <option value="Media" selected>Media</option>
+              <option value="Leggera">Leggera</option>
+            </select>
+          </div>
+        </div>
+        <button type="submit" class="w-full py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-sm transition shadow-md">+ Registra studio</button>
+      </form>
+
+      <!-- Routine -->
+      <div id="tabRecovery" class="tab-panel hidden space-y-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <button type="button" onclick="quickLogRecovery('water', 0.5)" class="p-3 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 text-xs font-bold transition">💧 +0.5L acqua</button>
+          <button type="button" onclick="quickLogRecovery('mealprep', 1)" class="p-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-bold transition">🍳 Cucina / meal prep</button>
+        </div>
+        <form onsubmit="handleSleepSubmit(event)" class="pt-2 border-t border-[#30363d] flex flex-col sm:flex-row gap-2.5 items-end">
+          <div class="w-full sm:flex-1">
+            <label class="block text-xs text-gray-400 mb-1">Ore dormite</label>
+            <input type="number" step="0.5" id="sleepHours" value="7.5" min="0" max="16" required class="w-full rounded-xl bg-[#0d1117] border border-[#30363d] px-3 py-2.5 text-sm text-white mono focus:border-emerald-400 focus:outline-none" />
+          </div>
+          <button type="submit" class="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm transition">+ Registra sonno</button>
+        </form>
+      </div>
+
+      <div class="pt-3 border-t border-[#30363d] grid grid-cols-3 gap-2 text-center text-xs mono">
+        <div class="bg-[#0d1117] rounded-xl p-2 border border-[#30363d]">
+          <span class="text-gray-400 block text-[10px]">SONNO OGGI</span>
+          <span id="quickSleepToday" class="font-bold text-emerald-400">0.0 h</span>
+        </div>
+        <div class="bg-[#0d1117] rounded-xl p-2 border border-[#30363d]">
+          <span class="text-gray-400 block text-[10px]">ACQUA OGGI</span>
+          <span id="quickWaterToday" class="font-bold text-cyan-400">0.0 L</span>
+        </div>
+        <div class="bg-[#0d1117] rounded-xl p-2 border border-[#30363d]">
+          <span class="text-gray-400 block text-[10px]">KCAL OGGI</span>
+          <span id="quickKcalToday" class="font-bold text-amber-400">0 kcal</span>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // ============ CONFIGURAZIONE ============
+    const ALFRED_EXEC_URL = "https://script.google.com/macros/s/AKfycbwxWCFJxXGtBV5IQ5D27nszDbKBIzicpgqZWItdWnuJ-CmAJuPLY5drN-CTJmsdQ_H2Nw/exec";
+    const MAX_UNDO_STEPS = 25;
+    const KEY_STORAGE = "alfredKey"; // nel browser salviamo solo la chiave, non i dati
+
+    // ============ CHIAVE SEGRETA ============
+    function getAppKey() {
+      let k = "";
+      try { k = localStorage.getItem(KEY_STORAGE) || ""; } catch (_) {}
+      if (!k) {
+        k = (prompt("Chiave Alfred:") || "").trim();
+        if (k) {
+          try { localStorage.setItem(KEY_STORAGE, k); } catch (_) {}
+        }
+      }
+      return k;
+    }
+
+    function clearAppKey() {
+      try { localStorage.removeItem(KEY_STORAGE); } catch (_) {}
+    }
+
+    function changeKey() {
+      clearAppKey();
+      const k = getAppKey();
+      showToast(k ? "Chiave aggiornata." : "Chiave non impostata.", k ? "success" : "error");
+      if (k) caricaUltimoStatoDaFoglio(true);
+    }
+
+    // ============ STATO (solo in memoria, la fonte è il foglio) ============
+    function createInitialState() {
+      return {
+        level: 1,
+        xp: 0,
+        stats: { forza: 10, intelletto: 10, carburante: 10, recupero: 10 },
+        statXp: { forza: 0, intelletto: 0, carburante: 0, recupero: 0 },
+        targets: { kcal: 2600, protein: 160, carbs: 280, fat: 75, water: 2.5, sleep: 7.5 },
+        pantry: [],
+        logs: [],
+        summary7d: { avgKcal: 0, avgProtein: 0, avgFatigue: 0 },
+        latestBriefing: "",
+        lastSheetTimestamp: null
+      };
+    }
+
+    let state = createInitialState();
+    let undoStack = [];
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+      });
+    }
+
+    function recordUndoSnapshot(label) {
+      undoStack.push({ label: label, data: structuredClone(state) });
+      if (undoStack.length > MAX_UNDO_STEPS) undoStack.shift();
+    }
+
+    async function undoLastAction() {
+      if (undoStack.length === 0) {
+        showToast("Nessuna azione da annullare.", "info");
+        return;
+      }
+      const snap = undoStack.pop();
+      state = snap.data;
+      renderAll();
+      showToast("Annullato: " + snap.label + ". Sincronizzo...", "info");
+      await inviaStatoASyncLog(false, false);
+    }
+
+    function getTodayKey() {
+      return new Date().toISOString().slice(0, 10);
+    }
+
+    // Medie 7gg: kcal e proteine PER GIORNO (non per pasto), fatica = RPE medio
+    function recomputeSummary7d() {
+      const now = Date.now();
+      const week = 7 * 24 * 60 * 60 * 1000;
+      const recent = state.logs.filter(function (it) {
+        return (now - new Date(it.timestamp || now).getTime()) <= week;
+      });
+
+      const perDay = {};
+      recent.filter(function (x) { return x.type === "nutrition"; }).forEach(function (m) {
+        if (!perDay[m.date]) perDay[m.date] = { kcal: 0, protein: 0 };
+        perDay[m.date].kcal += Number(m.kcal) || 0;
+        perDay[m.date].protein += Number(m.protein) || 0;
+      });
+      const days = Object.keys(perDay);
+      if (days.length > 0) {
+        state.summary7d.avgKcal = Math.round(days.reduce(function (a, d) { return a + perDay[d].kcal; }, 0) / days.length);
+        state.summary7d.avgProtein = Math.round(days.reduce(function (a, d) { return a + perDay[d].protein; }, 0) / days.length);
+      }
+
+      const workouts = recent.filter(function (x) { return x.type === "workout"; });
+      if (workouts.length > 0) {
+        const sum = workouts.reduce(function (a, w) { return a + (Number(w.rpe) || 5); }, 0);
+        state.summary7d.avgFatigue = Number((sum / workouts.length).toFixed(1));
+      }
+    }
+
+    function costruisciPayloadAlfred() {
+      return {
+        level: Number(state.level) || 1,
+        xp: Number(state.xp) || 0,
+        stats: {
+          forza: Number(state.stats.forza) || 0,
+          intelletto: Number(state.stats.intelletto) || 0,
+          carburante: Number(state.stats.carburante) || 0,
+          recupero: Number(state.stats.recupero) || 0
+        },
+        summary7d: {
+          avgKcal: Number(state.summary7d.avgKcal) || 0,
+          avgProtein: Number(state.summary7d.avgProtein) || 0,
+          avgFatigue: Number(state.summary7d.avgFatigue) || 0
+        }
+      };
+    }
+
+    // ============ COMUNICAZIONE CON IL FOGLIO ============
+    async function inviaStatoASyncLog(showSuccessToast, forceNotify) {
+      if (showSuccessToast === undefined) showSuccessToast = true;
+      const key = getAppKey();
+      if (!key) {
+        showToast("Chiave mancante: usa ⚙ → Cambia chiave.", "error");
+        return;
+      }
+
+      const body = Object.assign({}, costruisciPayloadAlfred(), { key: key, forceNotify: Boolean(forceNotify) });
+      try {
+        await fetch(ALFRED_EXEC_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(body) });
+        state.lastSheetTimestamp = new Date().toISOString();
+        renderAll();
+        if (showSuccessToast) showToast("Inviato al foglio. Aggiorno la lettura...", "success");
+        setTimeout(function () { caricaUltimoStatoDaFoglio(false); }, 2500);
+      } catch (err) {
+        console.error("Errore invio:", err);
+        showToast("Errore durante l'invio: " + err.message, "error");
+      }
+    }
+
+    function numOr(value, fallback) {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : fallback;
+    }
+
+    async function caricaUltimoStatoDaFoglio(notifyUser) {
+      const key = getAppKey();
+      if (!key) {
+        if (notifyUser) showToast("Chiave mancante: usa ⚙ → Cambia chiave.", "error");
+        return;
+      }
+
+      try {
+        const res = await fetch(ALFRED_EXEC_URL + "?key=" + encodeURIComponent(key), { method: "GET", cache: "no-store" });
+        if (!res.ok) return;
+
+        const data = await res.json();
+        if (data && data.error === "unauthorized") {
+          clearAppKey();
+          showToast("Chiave errata: ricarica la pagina e reinseriscila.", "error");
+          return;
+        }
+        if (!data || !data.ok) return;
+
+        if (data.empty || !data.latest) {
+          if (notifyUser) showToast("Foglio vuoto: nessuna riga registrata finora.", "info");
+          renderAll();
+          return;
+        }
+
+        const latest = data.latest;
+        state.level = numOr(latest.level, 1);
+        state.xp = numOr(latest.xp, 0);
+        if (latest.stats) {
+          state.stats = {
+            forza: numOr(latest.stats.forza, state.stats.forza),
+            intelletto: numOr(latest.stats.intelletto, state.stats.intelletto),
+            carburante: numOr(latest.stats.carburante, state.stats.carburante),
+            recupero: numOr(latest.stats.recupero, state.stats.recupero)
+          };
+        }
+        if (latest.summary7d) {
+          state.summary7d = {
+            avgKcal: numOr(latest.summary7d.avgKcal, 0),
+            avgProtein: numOr(latest.summary7d.avgProtein, 0),
+            avgFatigue: numOr(latest.summary7d.avgFatigue, 0)
+          };
+        }
+        if (typeof data.briefing === "string") state.latestBriefing = data.briefing;
+        state.lastSheetTimestamp = data.timestamp || new Date().toISOString();
+
+        renderAll();
+        if (notifyUser) showToast("Stato caricato dal Foglio Google.", "success");
+      } catch (err) {
+        console.warn("Lettura non riuscita:", err);
+        if (notifyUser) showToast("Impossibile leggere dal foglio ora.", "error");
+      }
+    }
+
+    // ============ XP ============
+    function addXp(statKey, amount) {
+      state.xp = (Number(state.xp) || 0) + amount;
+      state.level = Math.max(1, Math.floor(state.xp / 1000) + 1);
+
+      if (statKey && state.statXp[statKey] !== undefined) {
+        state.statXp[statKey] += amount;
+        const needed = (Number(state.stats[statKey]) || 1) * 25;
+        if (state.statXp[statKey] >= needed) {
+          state.stats[statKey] = (Number(state.stats[statKey]) || 1) + 1;
+          state.statXp[statKey] -= needed;
+        }
+      }
+    }
+
+    // ============ INSERIMENTI ============
+    async function handleWorkoutSubmit(e) {
+      e.preventDefault();
+      const type = document.getElementById("woType").value;
+      const exercise = document.getElementById("woExercise").value.trim();
+      const weight = Number(document.getElementById("woWeight").value) || 0;
+      const sets = Number(document.getElementById("woSets").value) || 0;
+      const reps = Number(document.getElementById("woReps").value) || 0;
+      const rpe = Number(document.getElementById("woRpe").value) || 5;
+
+      recordUndoSnapshot("Allenamento: " + (exercise || type));
+      state.logs.push({
+        type: "workout", timestamp: new Date().toISOString(), date: getTodayKey(),
+        sessionType: type, exercise: exercise, weight: weight, sets: sets, reps: reps, rpe: rpe
+      });
+
+      addXp("forza", 120);
+      recomputeSummary7d();
+      renderAll();
+      e.target.reset();
+      await inviaStatoASyncLog(true, false);
+    }
+
+    async function handleNutritionSubmit(e) {
+      e.preventDefault();
+      const name = document.getElementById("mealName").value.trim();
+      const kcal = Number(document.getElementById("mealKcal").value) || 0;
+      const protein = Number(document.getElementById("mealProtein").value) || 0;
+      const carbs = Number(document.getElementById("mealCarbs").value) || 0;
+      const fat = Number(document.getElementById("mealFat").value) || 0;
+
+      recordUndoSnapshot("Pasto: " + name);
+      state.logs.push({
+        type: "nutrition", timestamp: new Date().toISOString(), date: getTodayKey(),
+        name: name, kcal: kcal, protein: protein, carbs: carbs, fat: fat
+      });
+
+      addXp("carburante", 80);
+      recomputeSummary7d();
+      renderAll();
+      e.target.reset();
+      await inviaStatoASyncLog(true, false);
+    }
+
+    async function handleStudySubmit(e) {
+      e.preventDefault();
+      const topic = document.getElementById("studyTopic").value.trim();
+      const minutes = Number(document.getElementById("studyMinutes").value) || 0;
+      const intensity = document.getElementById("studyIntensity").value;
+
+      recordUndoSnapshot("Studio: " + topic + " (" + minutes + "m)");
+      state.logs.push({
+        type: "study", timestamp: new Date().toISOString(), date: getTodayKey(),
+        topic: topic, minutes: minutes, intensity: intensity
+      });
+
+      addXp("intelletto", Math.max(40, minutes * 2));
+      renderAll();
+      e.target.reset();
+      await inviaStatoASyncLog(true, false);
+    }
+
+    async function quickLogRecovery(kind, value) {
+      recordUndoSnapshot(kind === "water" ? "+" + value + "L acqua" : "Cucina / meal prep");
+      state.logs.push({
+        type: "recovery", kind: kind, value: value,
+        timestamp: new Date().toISOString(), date: getTodayKey()
+      });
+      addXp("recupero", 40);
+      renderAll();
+      await inviaStatoASyncLog(true, false);
+    }
+
+    async function handleSleepSubmit(e) {
+      e.preventDefault();
+      const hours = Number(document.getElementById("sleepHours").value) || 0;
+
+      recordUndoSnapshot("Sonno: " + hours + "h");
+      state.logs.push({
+        type: "recovery", kind: "sleep", value: hours,
+        timestamp: new Date().toISOString(), date: getTodayKey()
+      });
+      addXp("recupero", 90);
+      renderAll();
+      await inviaStatoASyncLog(true, false);
+    }
+
+    // ============ IMPOSTAZIONI ============
+    function saveTargets(e) {
+      e.preventDefault();
+      recordUndoSnapshot("Modifica target");
+      state.targets = {
+        kcal: Number(document.getElementById("cfgKcal").value) || 2600,
+        protein: Number(document.getElementById("cfgProtein").value) || 160,
+        carbs: Number(document.getElementById("cfgCarbs").value) || 280,
+        fat: Number(document.getElementById("cfgFat").value) || 75,
+        water: Number(document.getElementById("cfgWater").value) || 2.5,
+        sleep: Number(document.getElementById("cfgSleep").value) || 7.5
+      };
+      renderAll();
+      toggleModal("settingsModal", false);
+      showToast("Target aggiornati (solo in questa sessione).", "success");
+    }
+
+    function addPantryItem(e) {
+      e.preventDefault();
+      const name = document.getElementById("pantryName").value.trim();
+      const tag = document.getElementById("pantryTag").value;
+      const kcal = Number(document.getElementById("pantryKcal").value) || 0;
+      const protein = Number(document.getElementById("pantryPro").value) || 0;
+      if (!name) return;
+
+      recordUndoSnapshot("Dispensa +" + name);
+      state.pantry.push({ id: Date.now(), name: name, tag: tag, kcal: kcal, protein: protein });
+      renderAll();
+      renderPantryModal();
+      e.target.reset();
+      showToast("Aggiunto alla dispensa (solo in questa sessione).", "success");
+    }
+
+    function removePantryItem(id) {
+      const target = state.pantry.find(function (i) { return i.id === id; });
+      recordUndoSnapshot("Dispensa -" + (target ? target.name : "voce"));
+      state.pantry = state.pantry.filter(function (i) { return i.id !== id; });
+      renderAll();
+      renderPantryModal();
+    }
+
+    function exportJSON() {
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "alfred-os-snapshot-" + getTodayKey() + ".json";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function confirmResetAll() {
+      document.getElementById("resetConfirmBox").classList.remove("hidden");
+    }
+
+    async function executeResetAll() {
+      recordUndoSnapshot("Reset stato");
+      state = createInitialState();
+      renderAll();
+      document.getElementById("resetConfirmBox").classList.add("hidden");
+      showToast("Stato azzerato e inviato al foglio.", "info");
+      await inviaStatoASyncLog(false, false);
+    }
+
+    // ============ INTERFACCIA ============
+    function switchTab(tabId) {
+      document.querySelectorAll(".tab-panel").forEach(function (el) { el.classList.add("hidden"); });
+      document.getElementById(tabId).classList.remove("hidden");
+
+      document.querySelectorAll(".tab-btn").forEach(function (btn) {
+        btn.className = "tab-btn p-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 bg-[#0d1117] border-[#30363d] text-gray-400 hover:text-white";
+      });
+      const active = document.getElementById("btn-" + tabId);
+      if (active) {
+        active.className = "tab-btn p-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 bg-cyan-500/15 border-cyan-400 text-cyan-300";
+      }
+    }
+
+    function toggleModal(modalId, show) {
+      const el = document.getElementById(modalId);
+      if (!el) return;
+      if (show) {
+        document.getElementById("cfgKcal").value = state.targets.kcal;
+        document.getElementById("cfgProtein").value = state.targets.protein;
+        document.getElementById("cfgCarbs").value = state.targets.carbs;
+        document.getElementById("cfgFat").value = state.targets.fat;
+        document.getElementById("cfgWater").value = state.targets.water;
+        document.getElementById("cfgSleep").value = state.targets.sleep;
+        renderPantryModal();
+        el.classList.remove("hidden");
+      } else {
+        el.classList.add("hidden");
+      }
+    }
+
+    function showToast(message, type) {
+      const container = document.getElementById("toastContainer");
+      const colors = {
+        success: "bg-emerald-950/95 border-emerald-500/50 text-emerald-200",
+        error: "bg-red-950/95 border-red-500/50 text-red-200",
+        info: "bg-[#161b22]/95 border-cyan-500/40 text-cyan-200"
+      };
+      const toast = document.createElement("div");
+      toast.className = "px-3.5 py-2.5 rounded-xl border text-xs font-semibold shadow-xl " + (colors[type] || colors.info);
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(function () { toast.remove(); }, 3500);
+    }
+
+    function renderPantryModal() {
+      const box = document.getElementById("modalPantryList");
+      if (!box) return;
+      if (!state.pantry.length) {
+        box.innerHTML = '<p class="text-xs text-gray-500 col-span-2">Nessun alimento in dispensa.</p>';
+        return;
+      }
+      box.innerHTML = state.pantry.map(function (item) {
+        return '<div class="flex items-center justify-between bg-[#0d1117] border border-[#30363d] rounded-xl px-3 py-2 text-xs">' +
+          '<div><span class="font-bold text-white">' + escapeHtml(item.name) + '</span>' +
+          '<span class="ml-1.5 px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 mono text-[10px]">' + escapeHtml(item.tag) + '</span>' +
+          '<div class="text-[11px] mono text-gray-400">' + Number(item.kcal) + ' kcal · ' + Number(item.protein) + 'g pro</div></div>' +
+          '<button type="button" onclick="removePantryItem(' + Number(item.id) + ')" class="text-gray-500 hover:text-red-400 px-2">✕</button></div>';
+      }).join("");
+    }
+
+    function setBar(prefix, statKey) {
+      const lvl = Number(state.stats[statKey]) || 1;
+      const needed = lvl * 25;
+      const cur = Number(state.statXp[statKey]) || 0;
+      document.getElementById("stat" + prefix + "Lvl").textContent = "Lv." + lvl;
+      document.getElementById("stat" + prefix + "Xp").textContent = cur + " / " + needed;
+      document.getElementById("stat" + prefix + "Bar").style.width = Math.min(100, (cur / needed) * 100) + "%";
+    }
+
+    function renderAll() {
+      const today = getTodayKey();
+      const syncTag = state.lastSheetTimestamp ? " · Sync " + String(state.lastSheetTimestamp).slice(11, 19) : "";
+      document.getElementById("currentDateLabel").textContent = "Data: " + today + syncTag;
+
+      const hasUndo = undoStack.length > 0;
+      document.getElementById("undoLastBtn").disabled = !hasUndo;
+      document.getElementById("lastActionLabel").textContent = hasUndo
+        ? "Ultima: " + undoStack[undoStack.length - 1].label + " (" + undoStack.length + ")"
+        : "Nessuna azione annullabile";
+
+      const xpInLevel = state.xp % 1000;
+      document.getElementById("playerLevelBadge").textContent = "LVL " + state.level;
+      document.getElementById("xpText").textContent = xpInLevel + " / 1000 XP";
+      document.getElementById("xpProgressBar").style.width = Math.min(100, (xpInLevel / 1000) * 100) + "%";
+
+      const todayLogs = state.logs.filter(function (x) { return x.date === today; });
+      const sum = function (arr, f) { return arr.reduce(function (a, b) { return a + (Number(f(b)) || 0); }, 0); };
+      const meals = todayLogs.filter(function (x) { return x.type === "nutrition"; });
+      const kcalToday = sum(meals, function (m) { return m.kcal; });
+      const proToday = sum(meals, function (m) { return m.protein; });
+      const waterToday = sum(todayLogs.filter(function (x) { return x.type === "recovery" && x.kind === "water"; }), function (x) { return x.value; });
+      const sleepToday = sum(todayLogs.filter(function (x) { return x.type === "recovery" && x.kind === "sleep"; }), function (x) { return x.value; });
+      const studyToday = sum(todayLogs.filter(function (x) { return x.type === "study"; }), function (x) { return x.minutes; });
+      const workoutsToday = todayLogs.filter(function (x) { return x.type === "workout"; }).length;
+
+      document.getElementById("quickSleepToday").textContent = sleepToday.toFixed(1) + " h";
+      document.getElementById("quickWaterToday").textContent = waterToday.toFixed(1) + " L";
+      document.getElementById("quickKcalToday").textContent = kcalToday + " kcal";
+
+      setBar("Forza", "forza");
+      setBar("Intelletto", "intelletto");
+      setBar("Carburante", "carburante");
+      setBar("Recupero", "recupero");
+      document.getElementById("statForzaDetail").textContent = workoutsToday + " sessioni oggi";
+      document.getElementById("statIntellettoDetail").textContent = studyToday + " min oggi";
+      document.getElementById("statCarburanteDetail").textContent = proToday + "g pro oggi";
+      document.getElementById("statRecuperoDetail").textContent = waterToday.toFixed(1) + "L acqua oggi";
+
+      const s7 = state.summary7d || { avgKcal: 0, avgProtein: 0, avgFatigue: 0 };
+      const briefing = state.latestBriefing
+        ? escapeHtml(state.latestBriefing.replace(/\*\*/g, ""))
+        : "Nessun briefing ancora salvato. Registra un'azione o premi ↑ Sync Foglio AI.";
+
+      document.getElementById("commanderOrdersList").innerHTML =
+        '<div class="bg-[#0d1117]/80 border border-[#30363d] rounded-xl p-3 text-gray-200 whitespace-pre-line">' +
+        '<span class="text-cyan-400 font-bold mono block mb-1">ULTIMO BRIEFING:</span>' + briefing + '</div>' +
+        '<div class="bg-[#0d1117]/80 border border-[#30363d] rounded-xl p-3 text-gray-200">' +
+        '<span class="text-emerald-400 font-bold mono">MEDIE 7GG:</span> ' + s7.avgKcal + ' kcal/giorno · ' + s7.avgProtein + 'g pro/giorno · Fatica ' + s7.avgFatigue + '</div>';
+    }
+
+    renderAll();
+    caricaUltimoStatoDaFoglio(false);
+  </script>
+</body>
+</html>
